@@ -1,8 +1,8 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { SQSLib } from '../lib/sqs.lib.js';
-import { newId, now } from '../utils/index.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { Track, AudioCommit, AIStatus } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { SQSLib } from '../lib/sqs.lib';
+import { newId, now } from '../utils/index';
+import { createError } from '../middleware/asyncHandler';
+import type { Track, AudioCommit, AIStatus } from '../types/models';
 
 const AI_QUEUE = process.env.SQS_AI_ANALYSIS_QUEUE_URL ?? '';
 
@@ -14,9 +14,10 @@ export class TracksService {
 
   async listByProject(projectId: string): Promise<Track[]> {
     return this.dynamo.query<Track>({
-      pk: `PROJECT#${projectId}`,
-      skPrefix: 'TRACK#',
+      // pk: `PROJECT#${projectId}`,
+      // skPrefix: 'TRACK#',
       indexName: 'GSI2',
+      gsiSk: 'TRACK#',
       gsiPk: projectId,
       gsiPkField: 'GSI2PK',
     });

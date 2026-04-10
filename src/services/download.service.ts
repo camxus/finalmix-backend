@@ -1,9 +1,9 @@
 import JSZip from 'jszip';
 import { type Response } from 'express';
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { S3Lib } from '../lib/s3.lib.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { Track, AudioCommit } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { S3Lib } from '../lib/s3.lib';
+import { createError } from '../middleware/asyncHandler';
+import type { Track, AudioCommit } from '../types/models';
 
 export class DownloadService {
   constructor(

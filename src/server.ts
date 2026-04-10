@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import routes from './routes/index.js';
-import { errorMiddleware } from './middleware/asyncHandler.js';
+import routes from './routes/index';
+import { errorMiddleware } from './middleware/asyncHandler';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';

@@ -1,9 +1,9 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { SQSLib } from '../lib/sqs.lib.js';
-import { NemotronLib } from '../lib/nemotron.lib.js';
-import { now } from '../utils/index.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { Track, TrackAIData } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { SQSLib } from '../lib/sqs.lib';
+import { NemotronLib } from '../lib/nemotron.lib';
+import { now } from '../utils/index';
+import { createError } from '../middleware/asyncHandler';
+import type { Track, TrackAIData } from '../types/models';
 
 const AI_QUEUE = process.env.SQS_AI_ANALYSIS_QUEUE_URL ?? '';
 

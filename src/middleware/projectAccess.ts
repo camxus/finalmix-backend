@@ -1,7 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { createError } from './asyncHandler.js';
-import type { Project, ProjectShare, ProjectMember } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { createError } from './asyncHandler';
+import type { Project, ProjectShare, ProjectMember } from '../types/models';
 import crypto from 'crypto';
 
 const dynamo = new DynamoDBLib();
@@ -14,7 +14,7 @@ export async function projectAccess(req: Request, _res: Response, next: NextFunc
     const project = await dynamo.get<Project>(`PROJECT#${pid}`, `USER#placeholder`);
     // Query project by id regardless of owner
     const projects = await dynamo.query<Project>({
-      pk: `PROJECT#${pid}`,
+      // pk: `PROJECT#${pid}`,
       indexName: 'GSI2',
       gsiPk: pid,
       gsiPkField: 'GSI2PK',

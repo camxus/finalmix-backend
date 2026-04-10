@@ -1,9 +1,9 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { SQSLib } from '../lib/sqs.lib.js';
-import { NemotronLib } from '../lib/nemotron.lib.js';
-import { AIService } from '../services/ai.service.js';
-import { now } from '../utils/index.js';
-import type { AIAnalysisJobPayload } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { SQSLib } from '../lib/sqs.lib';
+import { NemotronLib } from '../lib/nemotron.lib';
+import { AIService } from '../services/ai.service';
+import { now } from '../utils/index';
+import type { AIAnalysisJobPayload } from '../types/models';
 
 const dynamo = new DynamoDBLib();
 const sqs = new SQSLib();

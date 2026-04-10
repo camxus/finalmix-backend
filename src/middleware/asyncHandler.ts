@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction, type RequestHandler } from 'express';
-import { buildApiError } from '../utils/index.js';
+import { buildApiError } from '../utils/index';
 
 // ─── asyncHandler ─────────────────────────────────────────────────────────────
 

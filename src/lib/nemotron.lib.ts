@@ -17,20 +17,23 @@ export class NemotronLib {
 
   async complete(prompt: string): Promise<string> {
     let result = '';
+
     const stream = await this.client.chat.completions.create({
       model: MODEL,
       messages: [{ role: 'user', content: prompt }],
       temperature: 1,
       top_p: 0.95,
       max_tokens: MAX_TOKENS,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(({ reasoning_budget: REASONING_BUDGET, chat_template_kwargs: { enable_thinking: true } }) as any),
       stream: true,
-    });
+    }) as unknown as AsyncIterable<{
+      choices: { delta?: { content?: string } }[];
+    }>;
 
     for await (const chunk of stream) {
       result += chunk.choices[0]?.delta?.content ?? '';
     }
+
     return result;
   }
 

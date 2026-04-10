@@ -1,7 +1,7 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { newId, now } from '../utils/index.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { Stem, AudioCommit, Track } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { newId, now } from '../utils/index';
+import { createError } from '../middleware/asyncHandler';
+import type { Stem, AudioCommit, Track } from '../types/models';
 
 export class StemsService {
   constructor(private readonly dynamo: DynamoDBLib) {}

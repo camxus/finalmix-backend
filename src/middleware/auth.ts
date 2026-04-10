@@ -1,8 +1,8 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { CognitoLib } from '../lib/cognito.lib.js';
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { createError } from './asyncHandler.js';
-import type { User } from '../types/models.js';
+import { CognitoLib } from '../lib/cognito.lib';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { createError } from './asyncHandler';
+import type { User } from '../types/models';
 
 const cognito = new CognitoLib();
 const dynamo = new DynamoDBLib();

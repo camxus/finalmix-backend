@@ -1,15 +1,16 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { S3Lib } from '../lib/s3.lib.js';
-import { SQSLib } from '../lib/sqs.lib.js';
-import { NemotronLib } from '../lib/nemotron.lib.js';
-import { TracksService } from '../services/tracks.service.js';
-import { StemsService } from '../services/stems.service.js';
-import { ProjectsService } from '../services/projects.service.js';
-import { SharesService } from '../services/shares.service.js';
-import { CommentsService } from '../services/comments.service.js';
-import { DownloadService } from '../services/download.service.js';
-import { UploadService } from '../services/upload.service.js';
-import { AIService } from '../services/ai.service.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { S3Lib } from '../lib/s3.lib';
+import { SQSLib } from '../lib/sqs.lib';
+import { NemotronLib } from '../lib/nemotron.lib';
+import { TracksService } from '../services/tracks.service';
+import { StemsService } from '../services/stems.service';
+import { ProjectsService } from '../services/projects.service';
+import { SharesService } from '../services/shares.service';
+import { CommentsService } from '../services/comments.service';
+import { DownloadService } from '../services/download.service';
+import { UploadService } from '../services/upload.service';
+import { AIService } from '../services/ai.service';
+import { UsersService } from '../services/users.service';
 
 // Singleton libs (stateless, safe to share across requests)
 const dynamo = new DynamoDBLib();
@@ -27,6 +28,7 @@ export function buildSDK(userId: string) {
     nemotron,
 
     // services
+    users: new UsersService(dynamo),
     projects: new ProjectsService(dynamo),
     tracks: new TracksService(dynamo, sqs),
     stems: new StemsService(dynamo),

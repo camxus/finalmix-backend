@@ -1,5 +1,5 @@
 import { type Request, type Response } from 'express';
-import { buildSDK } from '../sdk/index.js';
+import { buildSDK } from '../sdk/index';
 
 export async function listTracks(req: Request, res: Response): Promise<void> {
   const sdk = buildSDK(req.user?.id ?? 'anon');

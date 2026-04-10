@@ -1,7 +1,7 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { S3Lib } from '../lib/s3.lib.js';
-import { now } from '../utils/index.js';
-import type { WaveformJobPayload } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { S3Lib } from '../lib/s3.lib';
+import { now } from '../utils/index';
+import type { WaveformJobPayload } from '../types/models';
 
 const dynamo = new DynamoDBLib();
 

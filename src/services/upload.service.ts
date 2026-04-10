@@ -1,9 +1,9 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { S3Lib } from '../lib/s3.lib.js';
-import { SQSLib } from '../lib/sqs.lib.js';
-import { newId, now, s3Keys, AUDIO_MIME_TYPES, IMAGE_MIME_TYPES, MIME_TO_EXT } from '../utils/index.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { User, AssetType } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { S3Lib } from '../lib/s3.lib';
+import { SQSLib } from '../lib/sqs.lib';
+import { newId, now, s3Keys, AUDIO_MIME_TYPES, IMAGE_MIME_TYPES, MIME_TO_EXT } from '../utils/index';
+import { createError } from '../middleware/asyncHandler';
+import type { User, AssetType } from '../types/models';
 
 const WAVEFORM_QUEUE = process.env.SQS_WAVEFORM_QUEUE_URL ?? '';
 const AI_QUEUE = process.env.SQS_AI_ANALYSIS_QUEUE_URL ?? '';

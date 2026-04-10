@@ -1,7 +1,7 @@
-import { DynamoDBLib } from '../lib/dynamodb.lib.js';
-import { newId, now } from '../utils/index.js';
-import { createError } from '../middleware/asyncHandler.js';
-import type { TrackComment, CommentReply } from '../types/models.js';
+import { DynamoDBLib } from '../lib/dynamodb.lib';
+import { newId, now } from '../utils/index';
+import { createError } from '../middleware/asyncHandler';
+import type { TrackComment, CommentReply } from '../types/models';
 
 export class CommentsService {
   constructor(private readonly dynamo: DynamoDBLib) {}
