@@ -1,0 +1,260 @@
+service: mixvault-api
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 29
+  logRetentionInDays: 14
+
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    DYNAMODB_TABLE: ${ssm:/mixvault/${self:provider.stage}/dynamodb-table}
+    S3_BUCKET: ${ssm:/mixvault/${self:provider.stage}/s3-bucket}
+    S3_PRESIGN_EXPIRES_SECONDS: '3600'
+    SQS_WAVEFORM_QUEUE_URL: ${ssm:/mixvault/${self:provider.stage}/sqs-waveform-queue}
+    SQS_AI_ANALYSIS_QUEUE_URL: ${ssm:/mixvault/${self:provider.stage}/sqs-ai-queue}
+    SQS_TRANSCODE_QUEUE_URL: ${ssm:/mixvault/${self:provider.stage}/sqs-transcode-queue}
+    SQS_STORAGE_AUDIT_QUEUE_URL: ${ssm:/mixvault/${self:provider.stage}/sqs-audit-queue}
+    COGNITO_USER_POOL_ID: ${ssm:/mixvault/${self:provider.stage}/cognito-pool-id}
+    COGNITO_CLIENT_ID: ${ssm:/mixvault/${self:provider.stage}/cognito-client-id}
+    COGNITO_REGION: ${self:provider.region}
+    NEMOTRON_API_KEY: ${ssm:/mixvault/${self:provider.stage}/nemotron-api-key~true}
+    NEMOTRON_BASE_URL: 'https://integrate.api.nvidia.com/v1'
+    NEMOTRON_MODEL: 'nvidia/nemotron-3-super-120b-a12b'
+    NEMOTRON_MAX_TOKENS: '16384'
+    NEMOTRON_REASONING_BUDGET: '16384'
+    FRONTEND_URL: ${ssm:/mixvault/${self:provider.stage}/frontend-url}
+    SHARE_TOKEN_BYTES: '24'
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: arn:aws:s3:::${self:provider.environment.S3_BUCKET}/*
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource:
+            - arn:aws:sqs:${self:provider.region}:*:mixvault-*-${self:provider.stage}
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+          Resource: arn:aws:ssm:${self:provider.region}:*:parameter/mixvault/${self:provider.stage}/*
+
+functions:
+  # ── HTTP API (all REST endpoints) ──────────────────────────────────────────
+  api:
+    handler: dist/server.handler
+    memorySize: 512
+    timeout: 29
+    events:
+      - httpApi:
+          path: /health
+          method: GET
+      - httpApi:
+          path: /api/v1/{proxy+}
+          method: ANY
+          authorizer:
+            name: cognitoAuthorizer
+            type: jwt
+            identitySource: $request.header.Authorization
+            issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${self:provider.environment.COGNITO_USER_POOL_ID}
+            audience:
+              - ${self:provider.environment.COGNITO_CLIENT_ID}
+      # Public share endpoint — no JWT authorizer
+      - httpApi:
+          path: /api/v1/share/{token}
+          method: GET
+
+  # ── SQS Workers ────────────────────────────────────────────────────────────
+  waveformWorker:
+    handler: dist/sqs/waveformWorker.handler
+    memorySize: 1024
+    timeout: 300
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [WaveformQueue, Arn]
+          batchSize: 5
+          functionResponseType: ReportBatchItemFailures
+
+  aiAnalysisWorker:
+    handler: dist/sqs/aiAnalysisWorker.handler
+    memorySize: 512
+    timeout: 300
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [AIAnalysisQueue, Arn]
+          batchSize: 1
+          functionResponseType: ReportBatchItemFailures
+
+resources:
+  Resources:
+    # ── DynamoDB ─────────────────────────────────────────────────────────────
+    MixVaultTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        PointInTimeRecoverySpecification:
+          PointInTimeRecoveryEnabled: true
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+          - AttributeName: GSI1PK
+            AttributeType: S
+          - AttributeName: GSI1SK
+            AttributeType: S
+          - AttributeName: GSI2PK
+            AttributeType: S
+          - AttributeName: GSI2SK
+            AttributeType: S
+          - AttributeName: GSI3PK
+            AttributeType: S
+          - AttributeName: GSI3SK
+            AttributeType: S
+          - AttributeName: GSI5PK
+            AttributeType: S
+          - AttributeName: GSI5SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: GSI1
+            KeySchema:
+              - AttributeName: GSI1PK
+                KeyType: HASH
+              - AttributeName: GSI1SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: GSI2
+            KeySchema:
+              - AttributeName: GSI2PK
+                KeyType: HASH
+              - AttributeName: GSI2SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: GSI3
+            KeySchema:
+              - AttributeName: GSI3PK
+                KeyType: HASH
+              - AttributeName: GSI3SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: GSI5
+            KeySchema:
+              - AttributeName: GSI5PK
+                KeyType: HASH
+              - AttributeName: GSI5SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    # ── S3 ───────────────────────────────────────────────────────────────────
+    AudioBucket:
+      Type: AWS::S3::Bucket
+      DeletionPolicy: Retain
+      Properties:
+        BucketName: ${self:provider.environment.S3_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, PUT]
+              AllowedOrigins:
+                - ${self:provider.environment.FRONTEND_URL}
+                - https://*.mixvault.io
+              ExposedHeaders: [ETag]
+              MaxAge: 3000
+        LifecycleConfiguration:
+          Rules:
+            - Id: expire-orphaned-uploads
+              Status: Enabled
+              AbortIncompleteMultipartUpload:
+                DaysAfterInitiation: 1
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    # ── SQS ──────────────────────────────────────────────────────────────────
+    WaveformQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: mixvault-waveform-${self:provider.stage}
+        VisibilityTimeout: 360
+        MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [WaveformDLQ, Arn]
+          maxReceiveCount: 3
+
+    WaveformDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: mixvault-waveform-dlq-${self:provider.stage}
+        MessageRetentionPeriod: 1209600
+
+    AIAnalysisQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: mixvault-ai-${self:provider.stage}
+        VisibilityTimeout: 360
+        MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [AIAnalysisDLQ, Arn]
+          maxReceiveCount: 3
+
+    AIAnalysisDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: mixvault-ai-dlq-${self:provider.stage}
+        MessageRetentionPeriod: 1209600
+
+    StorageAuditQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: mixvault-audit-${self:provider.stage}
+        MessageRetentionPeriod: 86400
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    noPrependStageInUrl: true
