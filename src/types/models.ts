@@ -9,7 +9,6 @@ export type SharePermission = 'view';
 export type MemberRole = 'viewer';
 
 // ─── User ─────────────────────────────────────────────────────────────────────
-
 export interface User {
   id: string;               // Cognito sub
   email: string;
@@ -40,7 +39,6 @@ export interface Project {
   notes?: string;
   cover_image_url?: string;
   cover_image_key?: string;
-  thumbnail_waveform_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -89,6 +87,7 @@ export interface Track {
   color?: string;
   order_index: number;
   current_commit_id?: string;
+  current_commit?: AudioCommit;
   is_placeholder: boolean;
   ai_status: AIStatus;
   ai_data?: TrackAIData;
@@ -106,9 +105,9 @@ export interface Stem {
   name: string;
   color?: string;
   order_index: number;
-  is_collapsed: boolean;
   playback_mode: StemPlaybackMode;
   current_commit_id?: string;
+  current_commit?: AudioCommit;
   ableton_group_track_id?: string;
   created_at: string;
   updated_at: string;
@@ -176,6 +175,7 @@ export interface TrackComment {
   author_id?: string;
   author_name: string;
   author_email?: string;
+  author_avatar_url?: string;
   is_resolved: boolean;
   resolved_by?: string;
   resolved_at?: string;
@@ -189,6 +189,7 @@ export interface CommentReply {
   body: string;
   author_id?: string;
   author_name: string;
+  author_avatar_url?: string;
   created_at: string;
 }
 
@@ -219,4 +220,18 @@ declare global {
       projectAccess?: ProjectAccess;
     }
   }
+}
+
+// ─── Collections ───────────────────────────────────────────────────────
+
+export interface Collection {
+  id:                    string;
+  owner_id:              string;
+  parent_collection_id?: string;
+  name:                  string;
+  description?:          string;
+  cover_art_url?:        string;
+  tags:                  string[];
+  created_at:            string;
+  updated_at:            string;
 }

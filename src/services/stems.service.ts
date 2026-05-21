@@ -7,13 +7,22 @@ export class StemsService {
   constructor(private readonly dynamo: DynamoDBLib) {}
 
   async listByProject(projectId: string): Promise<Stem[]> {
-    return this.dynamo.query<Stem>({
+    const stem = await this.dynamo.query<Stem>({
       indexName: 'GSI2',
       gsiPk: projectId,
       gsiPkField: 'GSI2PK',
       gsiSk: 'STEM#',
       gsiSkField: 'GSI2SK',
     });
+
+    await Promise.all(stem.map(async t => {
+      if (t.current_commit_id) {
+        const commit = await this.getCommit(t.id, t.current_commit_id);
+        if (commit) t.current_commit = commit;
+      }
+    }));
+
+    return stem;
   }
 
   async getById(projectId: string, stemId: string): Promise<Stem> {
@@ -37,7 +46,6 @@ export class StemsService {
       name: input.name,
       color: input.color,
       order_index: input.orderIndex ?? 0,
-      is_collapsed: false,
       playback_mode: 'grouped',
       created_at: ts,
       updated_at: ts,
@@ -66,7 +74,7 @@ export class StemsService {
   }
 
   async update(projectId: string, stemId: string, updates: Partial<Pick<Stem,
-    'name' | 'color' | 'order_index' | 'is_collapsed' | 'playback_mode' | 'current_commit_id'
+    'name' | 'color' | 'order_index' | 'playback_mode' | 'current_commit_id'
   >> & { addTrackIds?: string[]; removeTrackIds?: string[] }): Promise<void> {
     const ts = now();
 
@@ -127,6 +135,26 @@ export class StemsService {
     );
 
     await this.dynamo.delete(`STEM#${stemId}`, `PROJECT#${projectId}`);
+  }
+
+  async getCommit(stemId: string, commitId: string): Promise<AudioCommit> {
+    const commit = await this.dynamo.get<AudioCommit>(`ASSET#${stemId}`, `COMMIT#${commitId}`);
+    if (!commit) throw createError('Commit not found', 404, 'NOT_FOUND');
+    return commit;
+  }
+  
+  async createCommit(commit: Omit<AudioCommit, 'id' | 'created_at'> & { id?: string }): Promise<AudioCommit> {
+    const id = commit.id ?? newId();
+    const ts = now();
+    const full: AudioCommit = { ...commit, id, created_at: ts };
+    await this.dynamo.put({
+      ...full,
+      PK: `ASSET#${full.asset_id}`,
+      SK: `COMMIT#${id}`,
+      GSI5PK: full.asset_id,
+      GSI5SK: ts,
+    });
+    return full;
   }
 
   async getCommits(stemId: string): Promise<AudioCommit[]> {

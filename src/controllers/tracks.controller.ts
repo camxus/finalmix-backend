@@ -49,6 +49,18 @@ export async function downloadZip(req: Request, res: Response): Promise<void> {
   await sdk.download.streamToResponse(zip, res, filename);
 }
 
+export async function getCommit(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user?.id ?? 'anon');
+  const commits = await sdk.tracks.getCommit(req.params.id, req.params.cid);
+  res.json(commits);
+}
+
+export async function createCommit(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user!.id);
+  const commit = await sdk.tracks.createCommit(req.body);
+  res.status(201).json(commit);
+}
+
 export async function listCommits(req: Request, res: Response): Promise<void> {
   const sdk = buildSDK(req.user?.id ?? 'anon');
   const commits = await sdk.tracks.getCommits(req.params.id);

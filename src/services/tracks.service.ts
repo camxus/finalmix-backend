@@ -10,10 +10,10 @@ export class TracksService {
   constructor(
     private readonly dynamo: DynamoDBLib,
     private readonly sqs: SQSLib,
-  ) {}
+  ) { }
 
   async listByProject(projectId: string): Promise<Track[]> {
-    return this.dynamo.query<Track>({
+    const track = await this.dynamo.query<Track>({
       // pk: `PROJECT#${projectId}`,
       // skPrefix: 'TRACK#',
       indexName: 'GSI2',
@@ -21,6 +21,15 @@ export class TracksService {
       gsiPk: projectId,
       gsiPkField: 'GSI2PK',
     });
+
+    await Promise.all(track.map(async t => {
+      if (t.current_commit_id) {
+        const commit = await this.getCommit(t.id, t.current_commit_id);
+        if (commit) t.current_commit = commit;
+      }
+    }));
+
+    return track;
   }
 
   async getById(projectId: string, trackId: string): Promise<Track> {
@@ -35,7 +44,17 @@ export class TracksService {
     orderIndex?: number;
     stemId?: string;
     isPlaceholder?: boolean;
+    currentCommitId?: string;
+    userTags?: string[];
   }): Promise<Track> {
+    const stemTracks = await this.dynamo.query<Track>({
+      indexName: 'GSI2',
+      gsiPk: projectId,
+      gsiPkField: 'GSI2PK',
+      gsiSk: `TRACK#`,
+      gsiSkField: 'GSI2SK',
+    });
+
     const id = newId();
     const ts = now();
     const track: Track = {
@@ -43,11 +62,12 @@ export class TracksService {
       project_id: projectId,
       name: input.name,
       color: input.color,
-      order_index: input.orderIndex ?? 0,
+      order_index: stemTracks.length ?? 0,
       stem_id: input.stemId,
       is_placeholder: input.isPlaceholder ?? false,
+      current_commit_id: input.currentCommitId,
       ai_status: 'pending',
-      user_tags: [],
+      user_tags: input.userTags ?? [],
       created_at: ts,
       updated_at: ts,
     };

@@ -1,10 +1,11 @@
 import { DynamoDBLib } from '../lib/dynamodb.lib';
 import { newId, now } from '../utils/index';
 import { createError } from '../middleware/asyncHandler';
-import type { TrackComment, CommentReply } from '../types/models';
+import type { TrackComment, CommentReply, User } from '../types/models';
+import { S3Lib } from '@/lib/s3.lib';
 
 export class CommentsService {
-  constructor(private readonly dynamo: DynamoDBLib) {}
+  constructor(private readonly dynamo: DynamoDBLib, private readonly s3: S3Lib) { }
 
   async list(trackId: string, filters?: {
     commitId?: string;
@@ -18,7 +19,13 @@ export class CommentsService {
       scanForward: true,
     });
 
-    return comments.filter(c => {
+    const users = await Promise.all(comments.map(c => c.author_id ? this.dynamo.get<User>(`USER#${c.author_id}`, 'PROFILE') : null));
+    const updatedComments = await Promise.all(comments.map(async (c, i) => {
+      if (users[i]) c.author_avatar_url = await this.s3.presignGet(`avatars/${users[i]!.id}`);
+      return c;
+    }));
+
+    return updatedComments.filter(c => {
       if (filters?.commitId && c.commit_id !== filters.commitId) return false;
       if (filters?.resolved !== undefined && c.is_resolved !== filters.resolved) return false;
       return true;
@@ -115,20 +122,35 @@ export class CommentsService {
     };
     await this.dynamo.put({
       ...reply,
-      PK: `REPLY#${id}`,
-      SK: `COMMENT#${commentId}`,
+      PK: `COMMENT#${commentId}`,
+      SK: `REPLY#${id}`,
     });
     return reply;
   }
 
   async getReplies(commentId: string): Promise<CommentReply[]> {
-    return this.dynamo.query<CommentReply>({
+    const results = await this.dynamo.query<CommentReply>({
       pk: `COMMENT#${commentId}`,
       skPrefix: 'REPLY#',
     });
+
+    return await Promise.all(
+      results.map(async (r) => {
+        if (!r.author_id) return r;
+
+        const author_avatar_url = await this.s3.presignGet(
+          `avatars/${r.author_id}`
+        );
+
+        return {
+          ...r,
+          author_avatar_url,
+        };
+      })
+    );
   }
 
   async deleteReply(replyId: string, commentId: string): Promise<void> {
-    await this.dynamo.delete(`REPLY#${replyId}`, `COMMENT#${commentId}`);
+    await this.dynamo.delete(`COMMENT#${commentId}`, `REPLY#${replyId}`);
   }
 }

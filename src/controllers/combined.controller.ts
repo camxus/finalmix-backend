@@ -31,6 +31,17 @@ export async function ungroupStem(req: Request, res: Response): Promise<void> {
   res.status(204).send();
 }
 
+export async function createStemCommit(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user!.id);
+  const commit = await sdk.stems.createCommit(req.body);
+  res.status(201).json(commit);
+}
+
+export async function getStemCommit(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user?.id ?? 'anon');
+  res.json(await sdk.stems.getCommit(req.params.id, req.params.cid));
+}
+
 export async function listStemCommits(req: Request, res: Response): Promise<void> {
   const sdk = buildSDK(req.user?.id ?? 'anon');
   res.json(await sdk.stems.getCommits(req.params.id));
@@ -83,6 +94,14 @@ export async function deleteCover(req: Request, res: Response): Promise<void> {
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
+export async function listProjectComments(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user?.id ?? 'anon');
+  const comments = await sdk.comments.list(req.params.pid, {
+    resolved: req.query.resolved !== undefined ? req.query.resolved === 'true' : undefined,
+  });
+  res.json(comments);
+}
+
 export async function listComments(req: Request, res: Response): Promise<void> {
   const sdk = buildSDK(req.user?.id ?? 'anon');
   const comments = await sdk.comments.list(req.params.tid, {
@@ -116,6 +135,12 @@ export async function deleteComment(req: Request, res: Response): Promise<void> 
   const sdk = buildSDK(req.user?.id ?? 'anon');
   await sdk.comments.delete(req.params.cid, req.params.tid);
   res.status(204).send();
+}
+
+export async function getReplies(req: Request, res: Response): Promise<void> {
+  const sdk = buildSDK(req.user?.id ?? 'anon');
+  const replies = await sdk.comments.getReplies(req.params.cid);
+  res.json(replies);
 }
 
 export async function addReply(req: Request, res: Response): Promise<void> {

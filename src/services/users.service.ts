@@ -1,6 +1,7 @@
 import { DynamoDBLib } from '../lib/dynamodb.lib';
 import { newId, now } from '../utils/index';
 import { createError } from '../middleware/asyncHandler';
+import { S3Lib } from '@/lib/s3.lib';
 
 export interface CreateUserInput {
   username: string;
@@ -21,7 +22,7 @@ export interface User {
 }
 
 export class UsersService {
-  constructor(private readonly dynamo: DynamoDBLib) {}
+  constructor(private readonly dynamo: DynamoDBLib, private readonly s3: S3Lib) { }
 
   // ─── Get by ID ─────────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export class UsersService {
     if (!user) {
       throw createError('User not found', 404, 'NOT_FOUND');
     }
+
+    user.avatar = await this.s3.presignGet(`avatars/${user.id}`);
 
     return user;
   }
@@ -66,10 +69,11 @@ export class UsersService {
       throw createError('Username already taken', 409, 'USERNAME_TAKEN');
     }
 
+    await this.s3.presignPut(`/avatars/${userId}`, "image/*");
+
     const user: User = {
       id: userId,
       username,
-      avatar: input.avatar,
       created_at: ts,
       updated_at: ts,
     };
@@ -121,7 +125,6 @@ export class UsersService {
 
     const updated: Partial<User> = {
       username: newUsername ?? existing.username,
-      avatar: updates.avatar ?? existing.avatar,
       updated_at: ts,
     };
 
@@ -146,6 +149,10 @@ export class UsersService {
       gsiPk: `USERNAME#${q}`,
       gsiPkField: 'GSI1PK',
     });
+
+    await Promise.all(results.map(async (user) => {
+      user.avatar = await this.s3.presignGet(`avatars/${user.id}`);
+    }));
 
     return results.slice(0, 10);
   }

@@ -7,7 +7,11 @@ import type { User } from '../types/models';
 const cognito = new CognitoLib();
 const dynamo = new DynamoDBLib();
 
-export async function auth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export interface AuthenticatedRequest extends Request {
+  user?: User;
+}
+
+export async function auth(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
   try {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {

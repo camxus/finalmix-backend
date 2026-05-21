@@ -13,6 +13,7 @@ export interface PresignResult {
   uploadUrl: string;
   fileKey: string;
   commitId: string;
+  assetId: string;
 }
 
 export class UploadService {
@@ -31,6 +32,7 @@ export class UploadService {
     fileSizeBytes: number;
     stemId?: string;
   }): Promise<PresignResult> {
+    const assetId = input.assetId ?? newId();
     if (!AUDIO_MIME_TYPES.has(input.contentType)) {
       throw createError(`Unsupported audio format: ${input.contentType}`, 400, 'BAD_REQUEST');
     }
@@ -47,10 +49,10 @@ export class UploadService {
 
     switch (input.assetType) {
       case 'track':
-        fileKey = keys.trackCommit(input.projectId, input.assetId, commitId, ext);
+        fileKey = keys.trackCommit(input.projectId, assetId, commitId, ext);
         break;
       case 'stem':
-        fileKey = keys.stemCommit(input.projectId, input.assetId, commitId, ext);
+        fileKey = keys.stemCommit(input.projectId, assetId, commitId, ext);
         break;
       case 'master':
         fileKey = keys.masterCommit(input.projectId, commitId, ext);
@@ -60,7 +62,7 @@ export class UploadService {
     }
 
     const uploadUrl = await this.s3.presignPut(fileKey, input.contentType);
-    return { uploadUrl, fileKey, commitId };
+    return { uploadUrl, fileKey, commitId, assetId };
   }
 
   async confirm(input: {
@@ -82,9 +84,11 @@ export class UploadService {
     const ts = now();
     const fileUrl = await this.s3.presignGet(input.fileKey, 3600 * 24 * 7); // 7-day URL
 
+    const assetId = input.assetId ?? newId()
+
     await this.dynamo.put({
       id: input.commitId,
-      asset_id: input.assetId,
+      asset_id: assetId,
       asset_type: input.assetType,
       version_number: input.versionNumber,
       commit_message: input.commitMessage,
@@ -98,16 +102,16 @@ export class UploadService {
       channels: input.channels,
       uploaded_by: input.userId,
       created_at: ts,
-      PK: `ASSET#${input.assetId}`,
+      PK: `ASSET#${assetId}`,
       SK: `COMMIT#${input.commitId}`,
-      GSI5PK: input.assetId,
+      GSI5PK: assetId,
       GSI5SK: ts,
     });
 
     // Update asset's current_commit_id
     const pkMap = { track: 'TRACK', stem: 'STEM', master: 'MASTER' };
     await this.dynamo.update({
-      pk: `${pkMap[input.assetType]}#${input.assetId}`,
+      pk: `${pkMap[input.assetType]}#${assetId}`,
       sk: `PROJECT#${input.projectId}`,
       updates: { current_commit_id: input.commitId, updated_at: ts },
     });
@@ -117,17 +121,17 @@ export class UploadService {
       await this.sqs.send(WAVEFORM_QUEUE, {
         commitId: input.commitId,
         fileKey: input.fileKey,
-        assetId: input.assetId,
+        assetId: assetId,
         assetType: input.assetType,
       }, input.commitId);
     }
 
     if (AI_QUEUE && input.assetType === 'track') {
       await this.sqs.send(AI_QUEUE, {
-        trackId: input.assetId,
+        trackId: assetId,
         commitId: input.commitId,
         projectId: input.projectId,
-      }, `${input.assetId}-${input.commitId}`);
+      }, `${assetId}-${input.commitId}`);
     }
 
     // Update storage quota
@@ -146,6 +150,6 @@ export class UploadService {
     const commitId = newId();
     const fileKey = s3Keys(user.id).cover(projectId, ext);
     const uploadUrl = await this.s3.presignPut(fileKey, contentType);
-    return { uploadUrl, fileKey, commitId };
+    return { uploadUrl, fileKey, commitId, assetId: newId() };
   }
 }
